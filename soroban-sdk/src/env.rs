@@ -275,6 +275,16 @@ impl Env {
     pub fn log_value<V: IntoVal<Env, RawVal>>(&self, v: V) {
         internal::Env::log_value(self, v.into_val(self));
     }
+
+    pub fn prove(&self, priv_inputs: Vec<u32>, pub_inputs: Vec<u32>) -> Bytes {
+        let proof = internal::Env::prove(self, priv_inputs.into(), pub_inputs.into());
+        unsafe { Bytes::unchecked_new(self.clone(), proof) }
+    }
+
+    pub fn verify(&self, proof: Bytes, pub_inputs: Vec<u32>) -> bool {
+        let v = internal::Env::verify(self, proof.into(), pub_inputs.into());
+        v.try_into().unwrap()
+    }
 }
 
 #[cfg(any(test, feature = "testutils"))]
