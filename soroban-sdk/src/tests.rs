@@ -26,6 +26,7 @@ mod crypto_keccak256;
 mod crypto_secp256k1;
 mod crypto_secp256r1;
 mod crypto_sha256;
+mod crypto_bls12_381;
 mod env;
 mod max_ttl;
 mod prng;
