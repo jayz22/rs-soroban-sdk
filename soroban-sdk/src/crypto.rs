@@ -182,6 +182,9 @@ pub struct Bls12_381 {
 }
 
 impl Bls12_381 {
+    pub const G1_DST: &'static str = soroban_env_host::BLS12381_G1_DST;
+    pub const G2_DST: &'static str = soroban_env_host::BLS12381_G2_DST;
+
     pub(crate) fn new(env: &Env) -> Bls12_381 {
         Bls12_381 { env: env.clone() }
     }
