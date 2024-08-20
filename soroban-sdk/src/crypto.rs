@@ -258,6 +258,11 @@ impl Bls12_381 {
         let bin = internal::Env::bls12_381_pairing(env, p1.into(), p2.into()).unwrap_infallible();
         Bytes::try_from_val(env, &bin).unwrap_infallible()        
     }
+
+    pub fn multi_pairing_check(&self, vp1: Vec<Bytes>, vp2: Vec<Bytes>) -> bool {
+        let env = self.env();
+        internal::Env::bls12_381_multi_pairing_check(env, vp1.into(), vp2.into()).unwrap_infallible().into()
+    }
 }
 
 /// # ⚠️ Hazardous Materials
