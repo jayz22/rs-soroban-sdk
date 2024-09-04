@@ -121,6 +121,9 @@ impl AuthorizedFunction {
             xdr::SorobanAuthorizedFunction::CreateContractHostFn(create_contract) => {
                 Self::CreateContractHostFn(create_contract.clone())
             }
+            xdr::SorobanAuthorizedFunction::ContractFn(_) => unimplemented!(),
+            xdr::SorobanAuthorizedFunction::CreateContractHostFn(_) => unimplemented!(),
+            xdr::SorobanAuthorizedFunction::CreateContractV2HostFn(_) => unimplemented!(),
         }
     }
 }

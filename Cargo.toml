@@ -24,29 +24,29 @@ soroban-ledger-snapshot = { version = "21.6.0", path = "soroban-ledger-snapshot"
 soroban-token-sdk = { version = "21.6.0", path = "soroban-token-sdk" }
 
 [workspace.dependencies.soroban-env-common]
-# version = "=21.2.0"
+version = "=22.0.0"
 git = "https://github.com/jayz22/rs-soroban-env"
-rev = "4a326362db2ab2b58d7713797ae697b2af62aecb"
+rev = "d4e12c76d19d3f0e1491637d2acb0cc171135725"
 
 [workspace.dependencies.soroban-env-guest]
-# version = "=21.2.0"
+version = "=22.0.0"
 git = "https://github.com/jayz22/rs-soroban-env"
-rev = "4a326362db2ab2b58d7713797ae697b2af62aecb"
+rev = "d4e12c76d19d3f0e1491637d2acb0cc171135725"
 
 [workspace.dependencies.soroban-env-host]
-# version = "=21.2.0"
+version = "=22.0.0"
 git = "https://github.com/jayz22/rs-soroban-env"
-rev = "4a326362db2ab2b58d7713797ae697b2af62aecb"
+rev = "d4e12c76d19d3f0e1491637d2acb0cc171135725"
 
 [workspace.dependencies.stellar-strkey]
 version = "=0.0.8"
 
 [workspace.dependencies.stellar-xdr]
-version = "=21.2.0"
+version = "=22.0.0"
 default-features = false
 features = ["curr"]
-# git = "https://github.com/stellar/rs-stellar-xdr"
-# rev = "d0138770652a615e3cd99447f2f2727658c17450"
+git = "https://github.com/stellar/rs-stellar-xdr"
+rev = "5315f4c583784860c0accbb8d3bd234055a19751"
 
 #[patch."https://github.com/stellar/rs-soroban-env"]
 #soroban-env-common = { path = "../rs-soroban-env/soroban-env-common" }
