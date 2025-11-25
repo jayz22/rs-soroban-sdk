@@ -27,11 +27,13 @@ pub struct Bn254 {
 /// 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47`) of the
 /// BN254 elliptic curve
 ///
-/// # Serialization:
-/// - The 64 bytes represent the **uncompressed encoding** of a point in G1. The
-///   bytes consist of `be_bytes(X) || be_bytes(Y)` (`||` is concatenation),
-///   where 'X' and 'Y' are the two coordinates, each being a base field element
-///   `Fp` (32 bytes each).
+/// # Serialization (Ethereum-compatible format):
+/// - The 64 bytes represent the **uncompressed encoding** of a point in G1
+/// - Format: `be_bytes(X) || be_bytes(Y)` where `||` denotes concatenation
+/// - X and Y are curve coordinates, each a 32-byte big-endian Fp field element
+/// - The two flag bits (bits 0x80 and 0x40 of the first byte) must be unset
+/// - The point at infinity is encoded as 64 zero bytes
+/// - Points must be on the curve (no subgroup check required for G1)
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct G1Affine(BytesN<G1_SERIALIZED_SIZE>);
@@ -39,12 +41,15 @@ pub struct G1Affine(BytesN<G1_SERIALIZED_SIZE>);
 /// `G2Affine` is a point in the G2 group (subgroup defined over the quadratic
 /// extension field `Fq2`) of the BN254 elliptic curve
 ///
-/// # Serialization:
-/// - The 128 bytes represent the **uncompressed encoding** of a point in G2.
-///   The bytes consist of `be_bytes(X_im) || be_bytes(X_re) || be_bytes(Y_im)
-///   || be_bytes(Y_re)` (`||` is concatenation), where 'X' and 'Y' are the two
-///   coordinates, each being an extension field element `Fp2`. Each component
-///   (real and imaginary parts) is an `Fp` element (32 bytes each).
+/// # Serialization (Ethereum-compatible format):
+/// - The 128 bytes represent the **uncompressed encoding** of a point in G2
+/// - Format: `be_bytes(X) || be_bytes(Y)` where each coordinate is an Fp2 element (64 bytes)
+/// - Fp2 element encoding: `be_bytes(c1) || be_bytes(c0)` where:
+///   - c0 is the real component (32-byte big-endian Fp element)
+///   - c1 is the imaginary component (32-byte big-endian Fp element)
+/// - The two flag bits (bits 0x80 and 0x40 of the first byte) must be unset
+/// - The point at infinity is encoded as 128 zero bytes
+/// - Points must be on the curve AND in the correct subgroup
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct G2Affine(BytesN<G2_SERIALIZED_SIZE>);
