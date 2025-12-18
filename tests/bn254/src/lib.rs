@@ -28,6 +28,30 @@ impl Contract {
     pub fn g1_mul(p: Bn254G1Affine, s: Fr) -> Bn254G1Affine {
         p * s
     }
+
+    pub fn g1_msm(env: Env, points: Vec<Bn254G1Affine>, scalars: Vec<Fr>) -> Bn254G1Affine {
+        env.crypto().bn254().g1_msm(points, scalars)
+    }
+
+    pub fn fr_add(a: Fr, b: Fr) -> Fr {
+        a + b
+    }
+
+    pub fn fr_sub(a: Fr, b: Fr) -> Fr {
+        a - b
+    }
+
+    pub fn fr_mul(a: Fr, b: Fr) -> Fr {
+        a * b
+    }
+
+    pub fn fr_pow(base: Fr, exp: u64) -> Fr {
+        base.pow(exp)
+    }
+
+    pub fn fr_inv(base: Fr) -> Fr {
+        base.inv()
+    }
 }
 
 #[cfg(test)]
@@ -142,5 +166,177 @@ mod test {
         let g1_negated = Bn254G1Affine::from_array(&env, &g1_negaed_bytes);
 
         assert_eq!(-g1, g1_negated);
+    }
+
+    #[test]
+    fn test_g1_msm() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        // BN254 generator point G1 = (1, 2)
+        let g1_bytes: [u8; 64] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, // X = 1
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 2, // Y = 2
+        ];
+        let g1 = Bn254G1Affine::from_array(&env, &g1_bytes);
+
+        let scalar_one: Fr = U256::from_u32(&env, 1).into();
+        let scalar_two: Fr = U256::from_u32(&env, 2).into();
+
+        // Test: G1 * 1 + G1 * 1 = G1 * 2 (using MSM vs scalar mul)
+        let points = vec![&env, g1.clone(), g1.clone()];
+        let scalars = vec![&env, scalar_one.clone(), scalar_one.clone()];
+
+        let msm_result = client.g1_msm(&points, &scalars);
+        let expected = client.g1_mul(&g1, &scalar_two);
+
+        assert_eq!(msm_result, expected);
+
+        // Test: G1 * 1 + (-G1) * 1 = identity (zero point)
+        let neg_g1 = -g1.clone();
+        let points_cancel = vec![&env, g1.clone(), neg_g1];
+        let scalars_cancel = vec![&env, scalar_one.clone(), scalar_one];
+
+        let cancel_result = client.g1_msm(&points_cancel, &scalars_cancel);
+
+        // Zero point is encoded as 64 zero bytes
+        let zero_bytes = [0u8; 64];
+        assert_eq!(cancel_result.to_array(), zero_bytes.as_slice());
+    }
+
+    #[test]
+    fn test_fr_add() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        let a: Fr = U256::from_u32(&env, 2).into();
+        let b: Fr = U256::from_u32(&env, 3).into();
+        let zero: Fr = U256::from_u32(&env, 0).into();
+
+        // 2 + 3 = 5
+        let result = client.fr_add(&a, &b);
+        let expected: Fr = U256::from_u32(&env, 5).into();
+        assert_eq!(result.to_u256(), expected.to_u256());
+
+        // a + 0 = a (identity)
+        let result_identity = client.fr_add(&a, &zero);
+        assert_eq!(result_identity.to_u256(), a.to_u256());
+
+        // a + b = b + a (commutativity)
+        let ab = client.fr_add(&a, &b);
+        let ba = client.fr_add(&b, &a);
+        assert_eq!(ab.to_u256(), ba.to_u256());
+    }
+
+    #[test]
+    fn test_fr_sub() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        let a: Fr = U256::from_u32(&env, 5).into();
+        let b: Fr = U256::from_u32(&env, 3).into();
+        let zero: Fr = U256::from_u32(&env, 0).into();
+
+        // 5 - 3 = 2
+        let result = client.fr_sub(&a, &b);
+        let expected: Fr = U256::from_u32(&env, 2).into();
+        assert_eq!(result.to_u256(), expected.to_u256());
+
+        // a - 0 = a (identity)
+        let result_identity = client.fr_sub(&a, &zero);
+        assert_eq!(result_identity.to_u256(), a.to_u256());
+
+        // a - a = 0
+        let result_zero = client.fr_sub(&a, &a);
+        assert_eq!(result_zero.to_u256(), zero.to_u256());
+    }
+
+    #[test]
+    fn test_fr_mul() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        let a: Fr = U256::from_u32(&env, 2).into();
+        let b: Fr = U256::from_u32(&env, 3).into();
+        let one: Fr = U256::from_u32(&env, 1).into();
+        let zero: Fr = U256::from_u32(&env, 0).into();
+
+        // 2 * 3 = 6
+        let result = client.fr_mul(&a, &b);
+        let expected: Fr = U256::from_u32(&env, 6).into();
+        assert_eq!(result.to_u256(), expected.to_u256());
+
+        // a * 1 = a (identity)
+        let result_identity = client.fr_mul(&a, &one);
+        assert_eq!(result_identity.to_u256(), a.to_u256());
+
+        // a * 0 = 0
+        let result_zero = client.fr_mul(&a, &zero);
+        assert_eq!(result_zero.to_u256(), zero.to_u256());
+
+        // a * b = b * a (commutativity)
+        let ab = client.fr_mul(&a, &b);
+        let ba = client.fr_mul(&b, &a);
+        assert_eq!(ab.to_u256(), ba.to_u256());
+    }
+
+    #[test]
+    fn test_fr_pow() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        let a: Fr = U256::from_u32(&env, 2).into();
+        let one: Fr = U256::from_u32(&env, 1).into();
+
+        // 2^0 = 1
+        let result_zero_exp = client.fr_pow(&a, &0u64);
+        assert_eq!(result_zero_exp.to_u256(), one.to_u256());
+
+        // 2^1 = 2
+        let result_one_exp = client.fr_pow(&a, &1u64);
+        assert_eq!(result_one_exp.to_u256(), a.to_u256());
+
+        // 2^10 = 1024
+        let result = client.fr_pow(&a, &10u64);
+        let expected: Fr = U256::from_u32(&env, 1024).into();
+        assert_eq!(result.to_u256(), expected.to_u256());
+
+        // 3^5 = 243
+        let three: Fr = U256::from_u32(&env, 3).into();
+        let result_3_5 = client.fr_pow(&three, &5u64);
+        let expected_243: Fr = U256::from_u32(&env, 243).into();
+        assert_eq!(result_3_5.to_u256(), expected_243.to_u256());
+    }
+
+    #[test]
+    fn test_fr_inv() {
+        let env = Env::default();
+        let contract_id = env.register(Contract, ());
+        let client = ContractClient::new(&env, &contract_id);
+
+        let one: Fr = U256::from_u32(&env, 1).into();
+
+        // 1^(-1) = 1
+        let result_one_inv = client.fr_inv(&one);
+        assert_eq!(result_one_inv.to_u256(), one.to_u256());
+
+        // For any a, a * a^(-1) = 1
+        let a: Fr = U256::from_u32(&env, 7).into();
+        let a_inv = client.fr_inv(&a);
+        let product = client.fr_mul(&a, &a_inv);
+        assert_eq!(product.to_u256(), one.to_u256());
+
+        // Another test: 2 * 2^(-1) = 1
+        let two: Fr = U256::from_u32(&env, 2).into();
+        let two_inv = client.fr_inv(&two);
+        let product_two = client.fr_mul(&two, &two_inv);
+        assert_eq!(product_two.to_u256(), one.to_u256());
     }
 }

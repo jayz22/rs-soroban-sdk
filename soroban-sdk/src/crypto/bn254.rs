@@ -2,7 +2,7 @@
 use crate::xdr::ScVal;
 use crate::{
     crypto::utils::BigInt,
-    env::internal::{self, BytesObject, U256Val},
+    env::internal::{self, BytesObject, U256Val, U64Val},
     impl_bytesn_repr,
     unwrap::{UnwrapInfallible, UnwrapOptimized},
     Bytes, BytesN, ConversionError, Env, IntoVal, TryFromVal, Val, Vec, U256,
@@ -10,7 +10,7 @@ use crate::{
 use core::{
     cmp::Ordering,
     fmt::Debug,
-    ops::{Add, Mul, Neg},
+    ops::{Add, Mul, Neg, Sub},
 };
 
 pub const BN254_FP_SERIALIZED_SIZE: usize = 32; // Size in bytes of a serialized Bn254Fp element in BN254. The field modulus is 254 bits, requiring 32 bytes (256 bits).
@@ -222,6 +222,14 @@ impl Fr {
     pub fn to_val(&self) -> Val {
         self.0.to_val()
     }
+
+    pub fn pow(&self, rhs: u64) -> Self {
+        self.env().crypto().bn254().fr_pow(self, rhs)
+    }
+
+    pub fn inv(&self) -> Self {
+        self.env().crypto().bn254().fr_inv(self)
+    }
 }
 
 impl From<U256> for Fr {
@@ -289,6 +297,30 @@ impl Debug for Fr {
     }
 }
 
+impl Add for Fr {
+    type Output = Fr;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.env().crypto().bn254().fr_add(&self, &rhs)
+    }
+}
+
+impl Sub for Fr {
+    type Output = Fr;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.env().crypto().bn254().fr_sub(&self, &rhs)
+    }
+}
+
+impl Mul for Fr {
+    type Output = Fr;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.env().crypto().bn254().fr_mul(&self, &rhs)
+    }
+}
+
 impl Bn254 {
     pub(crate) fn new(env: &Env) -> Bn254 {
         Bn254 { env: env.clone() }
@@ -333,6 +365,58 @@ impl Bn254 {
         internal::Env::bn254_multi_pairing_check(env, vp1.into(), vp2.into())
             .unwrap_infallible()
             .into()
+    }
+
+    // msm
+
+    /// Performs a multi-scalar multiplication (MSM) operation in G1.
+    pub fn g1_msm(&self, vp: Vec<Bn254G1Affine>, vs: Vec<Fr>) -> Bn254G1Affine {
+        let env = self.env();
+        let bin = internal::Env::bn254_g1_msm(env, vp.into(), vs.into()).unwrap_infallible();
+        unsafe { Bn254G1Affine::from_bytes(BytesN::unchecked_new(env.clone(), bin)) }
+    }
+
+    // scalar arithmetic
+
+    /// Adds two scalars in the BN254 scalar field `Fr`.
+    pub fn fr_add(&self, lhs: &Fr, rhs: &Fr) -> Fr {
+        let env = self.env();
+        let field = internal::Symbol::try_from_small_str("BN254").unwrap();
+        let v = internal::Env::u256_mod_add(env, lhs.into(), rhs.into(), field).unwrap_infallible();
+        U256::try_from_val(env, &v).unwrap_infallible().into()
+    }
+
+    /// Subtracts one scalar from another in the BN254 scalar field `Fr`.
+    pub fn fr_sub(&self, lhs: &Fr, rhs: &Fr) -> Fr {
+        let env = self.env();
+        let field = internal::Symbol::try_from_small_str("BN254").unwrap();
+        let v = internal::Env::u256_mod_sub(env, lhs.into(), rhs.into(), field).unwrap_infallible();
+        U256::try_from_val(env, &v).unwrap_infallible().into()
+    }
+
+    /// Multiplies two scalars in the BN254 scalar field `Fr`.
+    pub fn fr_mul(&self, lhs: &Fr, rhs: &Fr) -> Fr {
+        let env = self.env();
+        let field = internal::Symbol::try_from_small_str("BN254").unwrap();
+        let v = internal::Env::u256_mod_mul(env, lhs.into(), rhs.into(), field).unwrap_infallible();
+        U256::try_from_val(env, &v).unwrap_infallible().into()
+    }
+
+    /// Raises a scalar to the power of a given exponent in the BN254 scalar field `Fr`.
+    pub fn fr_pow(&self, lhs: &Fr, rhs: u64) -> Fr {
+        let env = self.env();
+        let field = internal::Symbol::try_from_small_str("BN254").unwrap();
+        let rhs = U64Val::try_from_val(env, &rhs).unwrap_optimized();
+        let v = internal::Env::u256_mod_pow(env, lhs.into(), rhs, field).unwrap_infallible();
+        U256::try_from_val(env, &v).unwrap_infallible().into()
+    }
+
+    /// Computes the multiplicative inverse of a scalar in the BN254 scalar field `Fr`.
+    pub fn fr_inv(&self, lhs: &Fr) -> Fr {
+        let env = self.env();
+        let field = internal::Symbol::try_from_small_str("BN254").unwrap();
+        let v = internal::Env::u256_mod_inv(env, lhs.into(), field).unwrap_infallible();
+        U256::try_from_val(env, &v).unwrap_infallible().into()
     }
 }
 
