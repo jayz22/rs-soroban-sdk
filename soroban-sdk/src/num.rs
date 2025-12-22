@@ -14,13 +14,6 @@ use crate::unwrap::{UnwrapInfallible, UnwrapOptimized};
 
 macro_rules! impl_num_wrapping_val_type {
     ($wrapper:ident, $val:ty, $small:ty) => {
-        impl Debug for $wrapper {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                // FIXME: properly print it when we have the conversion functions
-                write!(f, "{:?}", self.val.as_val())
-            }
-        }
-
         impl Eq for $wrapper {}
 
         impl PartialEq for $wrapper {
@@ -191,6 +184,20 @@ pub struct U256 {
 
 impl_num_wrapping_val_type!(U256, U256Val, U256Small);
 
+impl Debug for U256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        #[cfg(target_family = "wasm")]
+        {
+            write!(f, "U256({:?})", self.val.as_val())
+        }
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let bytes: [u8; 32] = self.to_be_bytes().try_into().unwrap();
+            write!(f, "U256(0x{})", hex::encode(bytes))
+        }
+    }
+}
+
 impl U256 {
     pub fn from_u32(env: &Env, u: u32) -> Self {
         U256 {
@@ -334,6 +341,20 @@ pub struct I256 {
 
 impl_num_wrapping_val_type!(I256, I256Val, I256Small);
 
+impl Debug for I256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        #[cfg(target_family = "wasm")]
+        {
+            write!(f, "I256({:?})", self.val.as_val())
+        }
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let bytes: [u8; 32] = self.to_be_bytes().try_into().unwrap();
+            write!(f, "I256(0x{})", hex::encode(bytes))
+        }
+    }
+}
+
 impl I256 {
     pub fn from_i32(env: &Env, i: i32) -> Self {
         I256 {
@@ -473,6 +494,19 @@ pub struct Timepoint {
 
 impl_num_wrapping_val_type!(Timepoint, TimepointVal, TimepointSmall);
 
+impl Debug for Timepoint {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        #[cfg(target_family = "wasm")]
+        {
+            write!(f, "Timepoint({:?})", self.val.as_val())
+        }
+        #[cfg(not(target_family = "wasm"))]
+        {
+            write!(f, "Timepoint({})", self.to_unix())
+        }
+    }
+}
+
 impl Timepoint {
     /// Create a Timepoint from a unix time in seconds, the time in seconds
     /// since January 1, 1970 UTC.
@@ -499,6 +533,19 @@ pub struct Duration {
 }
 
 impl_num_wrapping_val_type!(Duration, DurationVal, DurationSmall);
+
+impl Debug for Duration {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        #[cfg(target_family = "wasm")]
+        {
+            write!(f, "Duration({:?})", self.val.as_val())
+        }
+        #[cfg(not(target_family = "wasm"))]
+        {
+            write!(f, "Duration({})", self.to_seconds())
+        }
+    }
+}
 
 impl Duration {
     /// Create a Duration from seconds.

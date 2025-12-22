@@ -1,11 +1,7 @@
 #[cfg(not(target_family = "wasm"))]
 use crate::xdr::ScVal;
 use crate::{
-    crypto::utils::BigInt,
-    env::internal::{self, BytesObject, U256Val, U64Val},
-    impl_bytesn_repr,
-    unwrap::{UnwrapInfallible, UnwrapOptimized},
-    Bytes, BytesN, ConversionError, Env, IntoVal, TryFromVal, Val, Vec, U256,
+    bytesn, crypto::utils::BigInt, env::internal::{self, BytesObject, U256Val, U64Val}, impl_bytesn_repr, unwrap::{UnwrapInfallible, UnwrapOptimized}, Bytes, BytesN, ConversionError, Env, IntoVal, TryFromVal, Val, Vec, U256
 };
 use core::{
     cmp::Ordering,
@@ -82,6 +78,14 @@ impl Bn254G1Affine {
     pub fn env(&self) -> &Env {
         self.0.env()
     }
+
+    pub fn generator(env: &Env) -> Self {
+        Self::from_bytes(bytesn!(env, 0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002))
+    } 
+
+    pub fn zero(env: &Env) -> Self {
+        Self::from_bytes(bytesn!(env, 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000))
+    }       
 }
 
 impl Bn254Fp {
@@ -215,6 +219,13 @@ impl Fr {
         self.as_u256().to_be_bytes().try_into().unwrap_optimized()
     }
 
+    // hash to Fr
+
+    pub fn from_bytes_checked(bytes: BytesN<32>) -> Self {
+        let unchecked = Self::from_bytes(bytes);
+        Self::zero(&unchecked.env()) + unchecked
+    }
+
     pub fn as_val(&self) -> &Val {
         self.0.as_val()
     }
@@ -230,6 +241,18 @@ impl Fr {
     pub fn inv(&self) -> Self {
         self.env().crypto().bn254().fr_inv(self)
     }
+
+    pub fn from_u32(env: &Env, u: u32) -> Self {
+        U256::from_u32(env, u).into()
+    }
+
+    pub fn zero(env: &Env) -> Self {
+        U256::from_u32(env, 0).into()
+    }
+
+    pub fn one(env: &Env) -> Self {
+        U256::from_u32(env, 1).into()
+    }    
 }
 
 impl From<U256> for Fr {

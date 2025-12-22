@@ -220,7 +220,14 @@ macro_rules! impl_bytesn_repr {
 
         impl Debug for $elem {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(f, "{}({:?})", stringify!($elem), self.to_array())
+                #[cfg(target_family = "wasm")]
+                {
+                    write!(f, "{}({:?})", stringify!($elem), self.to_val())
+                }
+                #[cfg(not(target_family = "wasm"))]
+                {
+                    write!(f, "{}(0x{})", stringify!($elem), hex::encode(self.to_array()))
+                }
             }
         }
     };
