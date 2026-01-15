@@ -1282,6 +1282,60 @@ impl<const N: usize> BytesN<N> {
         array
     }
 
+    /// Create a [BytesN] from a decimal string representation of an unsigned integer.
+    ///
+    /// The string is parsed as a base-10 unsigned integer and converted to big-endian bytes.
+    /// The result is zero-padded on the left to fill N bytes.
+    ///
+    /// ### Panics
+    ///
+    /// - If the string contains non-digit characters.
+    /// - If the resulting value requires more than N bytes.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use soroban_sdk::{Env, BytesN};
+    ///
+    /// let env = Env::default();
+    ///
+    /// // 197121 decimal = 0x030201 hex = [3, 2, 1] in big-endian
+    /// let bytes: BytesN<3> = BytesN::from_decimal_str(&env, "197121");
+    /// assert_eq!(bytes.to_array(), [3, 2, 1]);
+    ///
+    /// // U256 max value (2^256 - 1)
+    /// let u256_max: BytesN<32> = BytesN::from_decimal_str(
+    ///     &env,
+    ///     "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    /// );
+    /// assert_eq!(u256_max.to_array(), [0xFF; 32]);
+    /// ```
+    pub fn from_decimal_str(env: &Env, s: &str) -> BytesN<N> {
+        let mut bytes = [0u8; N];
+
+        for c in s.chars() {
+            let digit = match c.to_digit(10) {
+                Some(d) => d as u8,
+                None => panic!("invalid character in decimal string: {}", c),
+            };
+
+            // Multiply current value by 10 and add digit
+            // Process from least significant byte (right) to most significant (left)
+            let mut carry: u16 = digit as u16;
+            for i in (0..N).rev() {
+                let val = (bytes[i] as u16) * 10 + carry;
+                bytes[i] = val as u8;
+                carry = val >> 8;
+            }
+
+            if carry != 0 {
+                panic!("decimal value overflows BytesN<{}>", N);
+            }
+        }
+
+        BytesN::from_array(env, &bytes)
+    }
+
     pub fn iter(&self) -> BytesIter {
         self.clone().into_iter()
     }
@@ -1464,6 +1518,81 @@ mod test {
         assert_eq!(bytesn!(&env, 0x0000030201), {
             BytesN::from_array(&env, &[0, 0, 3, 2, 1])
         });
+    }
+
+    #[test]
+    fn macro_bytesn_base10() {
+        let env = Env::default();
+
+        // Simple base 10: 197121 decimal = 0x030201 hex = [3, 2, 1]
+        assert_eq!(bytesn!(&env, 197121), {
+            BytesN::from_array(&env, &[3, 2, 1])
+        });
+
+        // U256 max value (2^256 - 1) in base 10
+        // = 115792089237316195423570985008687907853269984665640564039457584007913129639935
+        // = 32 bytes of 0xFF
+        assert_eq!(
+            bytesn!(
+                &env,
+                115792089237316195423570985008687907853269984665640564039457584007913129639935
+            ),
+            { BytesN::from_array(&env, &[0xFF; 32]) }
+        );
+
+        // A smaller U256 value: 2^128 = 0x0100...00 (1 followed by 32 hex zeros)
+        // = 340282366920938463463374607431768211456
+        // = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] (17 bytes)
+        assert_eq!(
+            bytesn!(&env, 340282366920938463463374607431768211456),
+            { BytesN::from_array(&env, &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) }
+        );
+    }
+
+    #[test]
+    fn from_decimal_str() {
+        let env = Env::default();
+
+        // Simple: 197121 decimal = 0x030201 hex = [3, 2, 1]
+        let bytes: BytesN<3> = BytesN::from_decimal_str(&env, "197121");
+        assert_eq!(bytes.to_array(), [3, 2, 1]);
+
+        // Verify it matches the compile-time macro
+        assert_eq!(bytes, bytesn!(&env, 197121));
+
+        // U256 max value (2^256 - 1)
+        let u256_max: BytesN<32> = BytesN::from_decimal_str(
+            &env,
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        );
+        assert_eq!(u256_max.to_array(), [0xFF; 32]);
+        assert_eq!(
+            u256_max,
+            bytesn!(
+                &env,
+                115792089237316195423570985008687907853269984665640564039457584007913129639935
+            )
+        );
+
+        // 2^128
+        let two_pow_128: BytesN<17> = BytesN::from_decimal_str(
+            &env,
+            "340282366920938463463374607431768211456",
+        );
+        assert_eq!(
+            two_pow_128.to_array(),
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+
+        // Zero
+        let zero: BytesN<4> = BytesN::from_decimal_str(&env, "0");
+        assert_eq!(zero.to_array(), [0, 0, 0, 0]);
+
+        // Small number with padding
+        let small: BytesN<32> = BytesN::from_decimal_str(&env, "255");
+        let mut expected = [0u8; 32];
+        expected[31] = 255;
+        assert_eq!(small.to_array(), expected);
     }
 
     #[test]
